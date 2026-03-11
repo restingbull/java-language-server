@@ -29,7 +29,7 @@ if [ ! -e src/main/java/com/google/devtools/build/lib/analysis/AnalysisProtos.ja
     ./scripts/gen_proto.sh
 fi
 
-mvn package -DskipTests
+bazel build //:java-language-server
 
 # Build vsix
 npm run-script vscode:build
