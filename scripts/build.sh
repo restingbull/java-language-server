@@ -31,6 +31,12 @@ fi
 
 bazel build //:java-language-server
 
+# Assemble dist/classpath for VSCode extension
+mkdir -p dist/classpath
+cp bazel-bin/java-language-server.jar dist/classpath/
+cp ~/.m2/repository/com/google/code/gson/gson/2.8.9/gson-2.8.9.jar dist/classpath/
+cp ~/.m2/repository/com/google/protobuf/protobuf-java/3.19.6/protobuf-java-3.19.6.jar dist/classpath/
+
 # Build vsix
 npm run-script vscode:build
 

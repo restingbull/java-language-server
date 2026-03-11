@@ -32,7 +32,12 @@ jobs:
     - name: Fetch node dependencies
       run: npm install
     - name: Build Java
-      run: mvn --batch-mode package
+      run: |
+        bazel build //:java-language-server
+        mkdir -p dist/classpath
+        cp bazel-bin/java-language-server.jar dist/classpath/
+        cp ~/.m2/repository/com/google/code/gson/gson/2.8.9/gson-2.8.9.jar dist/classpath/
+        cp ~/.m2/repository/com/google/protobuf/protobuf-java/3.19.6/protobuf-java-3.19.6.jar dist/classpath/
     - name: Build extension
       run: npm run-script vscode:build
     - name: Publish extension in VSCode marketplace
