@@ -17,6 +17,8 @@ java_binary(
 
 _TEST_DEPS = [
     ":lib",
+    "@maven//:com_google_code_gson_gson",
+    "@maven//:com_google_protobuf_protobuf_java",
     "@maven//:junit_junit",
     "@maven//:org_hamcrest_hamcrest_core",
     "@maven//:org_hamcrest_hamcrest_all",
@@ -27,7 +29,7 @@ _TEST_SRCS = glob(
     exclude = ["src/test/java/**/Benchmark*.java"],
 )
 
-_TEST_DATA = glob(["src/test/examples/**"])
+_TEST_DATA = glob(["src/test/examples/**"], allow_empty = True)
 
 java_test(
     name = "ArtifactTest",
