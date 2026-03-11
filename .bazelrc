@@ -23,6 +23,8 @@ build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAME
 build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
 
 # Test JVM flags: --add-exports + --add-opens for reflective test access
+test --test_env=PATH
+test --test_env=HOME
 test --test_env=JAVA_TOOL_OPTIONS
 test --jvmopt=--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
 test --jvmopt=--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED

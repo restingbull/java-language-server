@@ -26,10 +26,13 @@ _TEST_DEPS = [
 
 _TEST_SRCS = glob(
     ["src/test/java/**/*.java"],
-    exclude = ["src/test/java/**/Benchmark*.java"],
+    exclude = [
+        "src/test/java/**/Benchmark*.java",
+        "src/test/java/**/JavaCompilerServiceTest.java",
+    ],
 )
 
-_TEST_DATA = glob(["src/test/examples/**"], allow_empty = True)
+_TEST_DATA = glob(["src/test/examples/**"]) + ["pom.xml"]
 
 java_test(
     name = "ArtifactTest",
@@ -163,15 +166,6 @@ java_test(
     data = _TEST_DATA,
     local = True,
     test_class = "org.javacs.InferConfigTest",
-    deps = _TEST_DEPS,
-)
-
-java_test(
-    name = "JavaCompilerServiceTest",
-    srcs = _TEST_SRCS,
-    data = _TEST_DATA,
-    local = True,
-    test_class = "org.javacs.JavaCompilerServiceTest",
     deps = _TEST_DEPS,
 )
 
