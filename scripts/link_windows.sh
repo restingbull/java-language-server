@@ -4,7 +4,7 @@
 set -e
 
 # Set env variables to build with mac toolchain but windows target
-JAVA_HOME="./jdks/windows/jdk-21"
+JAVA_HOME="./jdks/windows/jdk-25.0.2"
 
 # Build in dist/windows
 rm -rf dist/windows
@@ -14,4 +14,4 @@ jlink \
   --output dist/windows \
   --no-header-files \
   --no-man-pages \
-  --compress 2
+  --compress=zip-6

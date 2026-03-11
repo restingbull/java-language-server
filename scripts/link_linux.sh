@@ -4,7 +4,7 @@
 set -e
 
 # Set env variables to build with mac toolchain but linux target
-JAVA_HOME="./jdks/linux/jdk-21"
+JAVA_HOME="./jdks/linux/jdk-25.0.2"
 
 # Build in dist/linux
 rm -rf dist/linux
@@ -14,4 +14,4 @@ jlink \
   --output dist/linux \
   --no-header-files \
   --no-man-pages \
-  --compress 2
+  --compress=zip-6
