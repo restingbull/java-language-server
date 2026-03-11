@@ -10,6 +10,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
+import javax.lang.model.element.Modifier;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -36,7 +37,7 @@ public class CreateMissingMethod implements Rewrite {
             var call = new FindMethodCallAt(task.task).scan(task.root(), position);
             if (call == null) return CANCELLED;
             var path = trees.getPath(task.root(), call);
-            var insertText = "\n" + printMethodHeader(task, call) + " {\n    // TODO\n}";
+            var insertText = "\n" + printMethodHeader(task, call, path) + " {\n    // TODO\n}";
             var surroundingClass = surroundingClass(path);
             var indent = EditHelper.indent(task.task, task.root(), surroundingClass) + 4;
             insertText = insertText.replaceAll("\n", "\n" + " ".repeat(indent));
@@ -67,14 +68,16 @@ public class CreateMissingMethod implements Rewrite {
         throw new RuntimeException("No surrounding class");
     }
 
-    private String printMethodHeader(CompileTask task, MethodInvocationTree call) {
+    private String printMethodHeader(CompileTask task, MethodInvocationTree call, TreePath path) {
         var methodName = extractMethodName(call.getMethodSelect());
         var returnType = "void"; // TODO infer type
         if (returnType.equals(methodName)) {
             returnType = "_";
         }
         var parameters = printParameters(task, call);
-        return "private " + returnType + " " + methodName + "(" + parameters + ")";
+        var enclosingMethod = surroundingMethod(path);
+        var staticModifier = enclosingMethod.getModifiers().getFlags().contains(Modifier.STATIC) ? "static " : "";
+        return "private " + staticModifier + returnType + " " + methodName + "(" + parameters + ")";
     }
 
     private String printParameters(CompileTask task, MethodInvocationTree call) {

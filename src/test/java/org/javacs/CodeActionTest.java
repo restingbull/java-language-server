@@ -101,6 +101,33 @@ public class CodeActionTest {
         assertThat(quickFix("org/javacs/action/TestCreateMissingMethod.java"), hasItem("Create missing method"));
     }
 
+    @Test
+    public void testCreateMissingMethodInStaticContext() {
+        var generatedText = createMissingMethodText("org/javacs/action/TestCreateMissingMethodStatic.java");
+        assertThat("generated method should have static modifier", generatedText, containsString("static"));
+    }
+
+    private String createMissingMethodText(String testFile) {
+        var file = FindResource.path(testFile);
+        server.lint(List.of(file));
+        var params = new CodeActionParams();
+        params.textDocument = new TextDocumentIdentifier(file.toUri());
+        params.context.diagnostics = errors;
+        var actions = server.codeAction(params);
+        for (var action : actions) {
+            if ("Create missing method".equals(action.title) && action.edit != null) {
+                var sb = new StringBuilder();
+                for (var edits : action.edit.changes.values()) {
+                    for (var edit : edits) {
+                        sb.append(edit.newText);
+                    }
+                }
+                return sb.toString();
+            }
+        }
+        return "";
+    }
+
     private List<String> quickFix(String testFile) {
         var file = FindResource.path(testFile);
         server.lint(List.of(file));
