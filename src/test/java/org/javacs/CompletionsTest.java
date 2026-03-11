@@ -753,4 +753,10 @@ public class CompletionsTest extends CompletionsBase {
         var inserts = filterText("/org/javacs/example/MultilineChain.java", 6, 14);
         assertThat(inserts, hasItem("concat"));
     }
+
+    @Test
+    public void createMissingMethod() {
+        var labels = label("/org/javacs/example/CompleteCreateMethod.java", 5, 23);
+        assertThat(labels, hasItem("Create method newMethod"));
+    }
 }

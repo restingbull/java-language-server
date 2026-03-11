@@ -10,6 +10,7 @@ import com.sun.source.tree.SwitchTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
+import javax.tools.Diagnostic;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -151,22 +152,30 @@ public class CompletionProvider {
         try (var task = compiler.compile(List.of(source))) {
             LOG.info("...compiled in " + Duration.between(started, Instant.now()).toMillis() + "ms");
             var path = new FindCompletionsAt(task.task).scan(task.root(), cursor);
+            CompletionList list;
             switch (path.getLeaf().getKind()) {
                 case IDENTIFIER:
-                    return completeIdentifier(task, path, partial, endsWithParen);
+                    list = completeIdentifier(task, path, partial, endsWithParen);
+                    break;
                 case MEMBER_SELECT:
-                    return completeMemberSelect(task, path, partial, endsWithParen);
+                    list = completeMemberSelect(task, path, partial, endsWithParen);
+                    break;
                 case MEMBER_REFERENCE:
-                    return completeMemberReference(task, path, partial);
+                    list = completeMemberReference(task, path, partial);
+                    break;
                 case SWITCH:
-                    return completeSwitchConstant(task, path, partial);
+                    list = completeSwitchConstant(task, path, partial);
+                    break;
                 case IMPORT:
-                    return completeImport(qualifiedPartialIdentifier(contents, (int) cursor));
+                    list = completeImport(qualifiedPartialIdentifier(contents, (int) cursor));
+                    break;
                 default:
-                    var list = new CompletionList();
+                    list = new CompletionList();
                     addKeywords(path, partial, list);
-                    return list;
+                    break;
             }
+            maybeAddCreateMethodItem(task, path, partial, cursor, contents, list);
+            return list;
         }
     }
 
@@ -726,6 +735,35 @@ public class CompletionProvider {
         static final int KEYWORD = iota++;
         static final int PACKAGE_MEMBER = iota++;
         static final int CASE_LABEL = iota++;
+    }
+
+    private void maybeAddCreateMethodItem(
+            CompileTask task, TreePath path, String partial, long cursor, String contents, CompletionList list) {
+        if (partial.isEmpty()) return;
+        var kind = path.getLeaf().getKind();
+        if (kind != Tree.Kind.MEMBER_SELECT && kind != Tree.Kind.IDENTIFIER) return;
+        long cursorLine = 1;
+        for (int i = 0; i < (int) cursor && i < contents.length(); i++) {
+            if (contents.charAt(i) == '\n') cursorLine++;
+        }
+        var hasCannotFindSymbol = false;
+        for (var d : task.diagnostics) {
+            if (d.getKind() != Diagnostic.Kind.ERROR) continue;
+            var code = d.getCode();
+            if (code == null) continue;
+            if (!code.contains("cant.resolve")) continue;
+            if (d.getLineNumber() == cursorLine) {
+                hasCannotFindSymbol = true;
+                break;
+            }
+        }
+        if (!hasCannotFindSymbol) return;
+        var item = new CompletionItem();
+        item.label = "Create method " + partial;
+        item.kind = CompletionItemKind.Method;
+        item.detail = "Generate stub for missing method";
+        item.sortText = String.format("%02d%s", Priority.SNIPPET, item.label);
+        list.items.add(item);
     }
 
     private void logCompletionTiming(Instant started, List<?> list, boolean isIncomplete) {
