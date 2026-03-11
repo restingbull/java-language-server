@@ -1,0 +1,33 @@
+# Bazel 7.x + JDK 25 toolchain configuration
+# java-language-server
+
+# Enable bzlmod
+common --enable_bzlmod
+
+# Java toolchain: target JDK 25
+build --java_language_version=25
+build --tool_java_language_version=25
+build --java_runtime_version=local_jdk
+
+# --add-exports for internal jdk.compiler APIs used by the language server
+build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED
+build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED
+build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED
+build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED
+build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED
+build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+
+# Test JVM flags: --add-exports + --add-opens for reflective test access
+test --test_env=JAVA_TOOL_OPTIONS
+test --jvmopt=--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+test --jvmopt=--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED
+test --jvmopt=--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED
+test --jvmopt=--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED
+test --jvmopt=--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED
+test --jvmopt=--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED
+test --jvmopt=--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+test --jvmopt=--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+
+# Output test logs on failure
+test --test_output=errors
