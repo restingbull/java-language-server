@@ -174,7 +174,7 @@ public class CompletionProvider {
                     addKeywords(path, partial, list);
                     break;
             }
-            maybeAddCreateMethodItem(task, path, partial, cursor, contents, list);
+            maybeAddCreateMethodItem(task, path, partial, cursor, list);
             return list;
         }
     }
@@ -738,14 +738,11 @@ public class CompletionProvider {
     }
 
     private void maybeAddCreateMethodItem(
-            CompileTask task, TreePath path, String partial, long cursor, String contents, CompletionList list) {
+            CompileTask task, TreePath path, String partial, long cursor, CompletionList list) {
         if (partial.isEmpty()) return;
         var kind = path.getLeaf().getKind();
         if (kind != Tree.Kind.MEMBER_SELECT && kind != Tree.Kind.IDENTIFIER) return;
-        long cursorLine = 1;
-        for (int i = 0; i < (int) cursor && i < contents.length(); i++) {
-            if (contents.charAt(i) == '\n') cursorLine++;
-        }
+        var cursorLine = task.root().getLineMap().getLineNumber(cursor);
         var hasCannotFindSymbol = false;
         for (var d : task.diagnostics) {
             if (d.getKind() != Diagnostic.Kind.ERROR) continue;
@@ -763,6 +760,7 @@ public class CompletionProvider {
         item.kind = CompletionItemKind.Method;
         item.detail = "Generate stub for missing method";
         item.sortText = String.format("%02d%s", Priority.SNIPPET, item.label);
+        item.command = new Command("Create missing method", "java.action.quickFix", null);
         list.items.add(item);
     }
 

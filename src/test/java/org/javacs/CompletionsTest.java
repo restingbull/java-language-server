@@ -756,7 +756,25 @@ public class CompletionsTest extends CompletionsBase {
 
     @Test
     public void createMissingMethod() {
-        var labels = label("/org/javacs/example/CompleteCreateMethod.java", 5, 23);
+        var items = items("/org/javacs/example/CompleteCreateMethod.java", 5, 23);
+        var labels = items.stream().map(i -> i.label).collect(Collectors.toList());
         assertThat(labels, hasItem("Create method newMethod"));
+        var createItem = items.stream()
+                .filter(i -> "Create method newMethod".equals(i.label))
+                .findFirst()
+                .orElseThrow();
+        assertThat("create-method item must have a command", createItem.command, notNullValue());
+    }
+
+    @Test
+    public void createMissingMethodUnqualified() {
+        var items = items("/org/javacs/example/CompleteCreateMethodUnqualified.java", 5, 18);
+        var labels = items.stream().map(i -> i.label).collect(Collectors.toList());
+        assertThat(labels, hasItem("Create method newMethod"));
+        var createItem = items.stream()
+                .filter(i -> "Create method newMethod".equals(i.label))
+                .findFirst()
+                .orElseThrow();
+        assertThat("create-method item must have a command", createItem.command, notNullValue());
     }
 }
