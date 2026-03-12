@@ -13,5 +13,11 @@ class WrongTypeContains {
         list.contains(42);
         list.indexOf(42);
         s.contains("valid");
+        list.remove(0);          // List.remove(int) - must NOT warn
+    }
+
+    void testRemoveObject() {
+        List<Integer> ints = new ArrayList<>();
+        ints.remove("foo");     // wrong type: String vs Integer element type
     }
 }

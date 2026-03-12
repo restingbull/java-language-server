@@ -133,6 +133,8 @@ public class WarningsTest {
         assertThat(errors, hasItem("wrong_type_contains(13)")); // list.contains(42) - List<String>
         assertThat(errors, hasItem("wrong_type_contains(14)")); // list.indexOf(42) - List<String>
         assertThat(errors, not(hasItem("wrong_type_contains(15)"))); // s.contains("valid") - compatible
+        assertThat(errors, not(hasItem("wrong_type_contains(17)"))); // list.remove(int) - primitive overload
+        assertThat(errors, hasItem("wrong_type_contains(21)")); // ints.remove("foo") - String vs Integer
     }
 
     // TODO warn on type.equals(otherType)

@@ -11,9 +11,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.Types;
 
 class WarnWrongType extends TreePathScanner<Void, List<WarnWrongType.Finding>> {
@@ -69,7 +72,7 @@ class WarnWrongType extends TreePathScanner<Void, List<WarnWrongType.Finding>> {
         }
         var paramType = params.get(0).asType();
         // Skip primitive overloads (e.g. List.remove(int))
-        if (paramType.getKind() == TypeKind.INT || paramType.getKind().isPrimitive()) {
+        if (paramType.getKind().isPrimitive()) {
             return super.visitMethodInvocation(t, findings);
         }
 
@@ -88,6 +91,14 @@ class WarnWrongType extends TreePathScanner<Void, List<WarnWrongType.Finding>> {
             return super.visitMethodInvocation(t, findings);
         }
 
+        // Skip lower-bounded wildcards (? super T): the method accepts Object, any arg is valid
+        if (elementType.getKind() == TypeKind.WILDCARD) {
+            var wildcard = (WildcardType) elementType;
+            if (wildcard.getSuperBound() != null) {
+                return super.visitMethodInvocation(t, findings);
+            }
+        }
+
         // Get argument type
         ExpressionTree argExpr = t.getArguments().get(0);
         var argPath = new TreePath(getCurrentPath(), argExpr);
@@ -99,7 +110,7 @@ class WarnWrongType extends TreePathScanner<Void, List<WarnWrongType.Finding>> {
         // Box primitives for comparison
         TypeMirror boxedArg;
         if (argType.getKind().isPrimitive()) {
-            boxedArg = types.boxedClass((javax.lang.model.type.PrimitiveType) argType).asType();
+            boxedArg = types.boxedClass((PrimitiveType) argType).asType();
         } else {
             boxedArg = argType;
         }
@@ -116,19 +127,22 @@ class WarnWrongType extends TreePathScanner<Void, List<WarnWrongType.Finding>> {
      * does not implement Collection.
      */
     private TypeMirror collectionElementType(DeclaredType type) {
-        // Check the type itself and all supertypes for Collection<E>
+        // Check the type itself first, then supertypes
+        var direct = collectionElementTypeOf(type);
+        if (direct != null) return direct;
         for (TypeMirror supertype : types.directSupertypes(type)) {
             var result = collectionElementTypeOf(supertype);
             if (result != null) return result;
         }
-        return collectionElementTypeOf(type);
+        return null;
     }
 
     private TypeMirror collectionElementTypeOf(TypeMirror type) {
         if (!(type instanceof DeclaredType)) return null;
         var declared = (DeclaredType) type;
         var el = declared.asElement();
-        var qualifiedName = ((javax.lang.model.element.TypeElement) el).getQualifiedName().toString();
+        if (!(el instanceof TypeElement)) return null;
+        var qualifiedName = ((TypeElement) el).getQualifiedName().toString();
         if (qualifiedName.equals("java.util.Collection") && declared.getTypeArguments().size() == 1) {
             return declared.getTypeArguments().get(0);
         }
