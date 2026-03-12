@@ -220,5 +220,55 @@ public class JavaDebugServerTest {
         process.waitFor();
     }
 
+    @Test
+    public void arrayVariableShowsIndexedChildren() throws IOException, InterruptedException {
+        launchProcess("Arrays");
+        attach(5005);
+        setBreakpoint("Arrays", 4);
+        server.configurationDone();
+        stoppedEvents.take();
+        // Find the main thread
+        var threads = server.threads().threads;
+        org.javacs.debug.proto.Variable arrVar = null;
+        for (var t : threads) {
+            if (t.name.equals("main")) {
+                var requestTrace = new StackTraceArguments();
+                requestTrace.threadId = t.id;
+                var stack = server.stackTrace(requestTrace);
+                var requestScopes = new ScopesArguments();
+                requestScopes.frameId = stack.stackFrames[0].id;
+                var scopes = server.scopes(requestScopes).scopes;
+                var requestLocals = new VariablesArguments();
+                requestLocals.variablesReference = scopes[0].variablesReference;
+                var locals = server.variables(requestLocals).variables;
+                for (var v : locals) {
+                    if (v.name.equals("arr")) {
+                        arrVar = v;
+                    }
+                }
+            }
+        }
+        // arr must be found
+        org.junit.Assert.assertNotNull("arr variable not found", arrVar);
+        // value must be "int[3]"
+        org.junit.Assert.assertEquals("int[3]", arrVar.value);
+        // must have a variablesReference so children can be fetched
+        org.junit.Assert.assertTrue("variablesReference must be > 0", arrVar.variablesReference > 0);
+        // fetch children
+        var requestChildren = new VariablesArguments();
+        requestChildren.variablesReference = arrVar.variablesReference;
+        var children = server.variables(requestChildren).variables;
+        org.junit.Assert.assertEquals(3, children.length);
+        org.junit.Assert.assertEquals("[0]", children[0].name);
+        org.junit.Assert.assertEquals("1", children[0].value);
+        org.junit.Assert.assertEquals("[1]", children[1].name);
+        org.junit.Assert.assertEquals("2", children[1].value);
+        org.junit.Assert.assertEquals("[2]", children[2].name);
+        org.junit.Assert.assertEquals("3", children[2].value);
+        // Wait for process to exit
+        server.continue_(new ContinueArguments());
+        process.waitFor();
+    }
+
     private static final Logger LOG = Logger.getLogger("main");
 }

@@ -13,8 +13,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.logging.*;
@@ -34,6 +36,8 @@ public class JavaDebugServer implements DebugServer {
     private VirtualMachine vm;
     private final List<Breakpoint> pendingBreakpoints = new ArrayList<>();
     private static int breakPointCounter = 0;
+    private final Map<Integer, ArrayReference> arrayRegistry = new HashMap<>();
+    private int arrayRegistryCounter = 1;
 
     class ReceiveVmEvents implements Runnable {
         @Override
@@ -634,6 +638,10 @@ public class JavaDebugServer implements DebugServer {
 
     @Override
     public VariablesResponseBody variables(VariablesArguments req) {
+        // Array registry IDs are in range [1, FRAME_OFFSET * 2); frame scope IDs start at FRAME_OFFSET * 2.
+        if (req.variablesReference > 0 && req.variablesReference < FRAME_OFFSET * 2L) {
+            return arrayChildren((int) req.variablesReference);
+        }
         var frameId = req.variablesReference / 2;
         var scopeId = (int) (req.variablesReference % 2);
         var argumentScope = scopeId == 1;
@@ -652,14 +660,41 @@ public class JavaDebugServer implements DebugServer {
             if (v.isArgument() != argumentScope) continue;
             var w = new Variable();
             w.name = v.name();
-            w.value = print(values.get(v), thread);
             w.type = v.typeName();
-            // TODO set variablesReference and allow inspecting structure of collections and POJOs
-            // TODO set variablePresentationHint
+            var jdiValue = values.get(v);
+            if (jdiValue instanceof ArrayReference) {
+                var arr = (ArrayReference) jdiValue;
+                var componentTypeName = ((com.sun.jdi.ArrayType) arr.type()).componentTypeName();
+                w.value = componentTypeName + "[" + arr.length() + "]";
+                var id = arrayRegistryCounter++;
+                arrayRegistry.put(id, arr);
+                w.variablesReference = id;
+            } else {
+                w.value = print(jdiValue, thread);
+            }
             variables.add(w);
         }
         var resp = new VariablesResponseBody();
         resp.variables = variables.toArray(Variable[]::new);
+        return resp;
+    }
+
+    private VariablesResponseBody arrayChildren(int registryId) {
+        var arr = arrayRegistry.get(registryId);
+        if (arr == null) {
+            LOG.warning("No array registered with id " + registryId);
+            return new VariablesResponseBody();
+        }
+        var length = arr.length();
+        var variables = new Variable[length];
+        for (var i = 0; i < length; i++) {
+            var w = new Variable();
+            w.name = "[" + i + "]";
+            w.value = arr.getValue(i).toString();
+            variables[i] = w;
+        }
+        var resp = new VariablesResponseBody();
+        resp.variables = variables;
         return resp;
     }
 
