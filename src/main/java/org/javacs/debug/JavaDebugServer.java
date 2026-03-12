@@ -13,12 +13,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.*;
 import org.javacs.LogFormat;
 import org.javacs.debug.proto.*;
@@ -36,8 +37,10 @@ public class JavaDebugServer implements DebugServer {
     private VirtualMachine vm;
     private final List<Breakpoint> pendingBreakpoints = new ArrayList<>();
     private static int breakPointCounter = 0;
-    private final Map<Integer, ArrayReference> arrayRegistry = new HashMap<>();
-    private int arrayRegistryCounter = 1;
+    /** Registry of arrays encountered during variable inspection. Cleared on each stopped event. */
+    private final Map<Integer, ArrayReference> arrayRegistry = new ConcurrentHashMap<>();
+    /** Next ID to assign; stays in [1, FRAME_OFFSET * 2) via modular reset. */
+    private final AtomicInteger arrayRegistryCounter = new AtomicInteger(1);
 
     class ReceiveVmEvents implements Runnable {
         @Override
@@ -73,6 +76,8 @@ public class JavaDebugServer implements DebugServer {
                 evt.reason = "breakpoint";
                 evt.threadId = b.thread().uniqueID();
                 evt.allThreadsStopped = b.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
+                arrayRegistry.clear();
+                arrayRegistryCounter.set(1);
                 client.stopped(evt);
             } else if (event instanceof StepEvent) {
                 var b = (StepEvent) event;
@@ -80,6 +85,8 @@ public class JavaDebugServer implements DebugServer {
                 evt.reason = "step";
                 evt.threadId = b.thread().uniqueID();
                 evt.allThreadsStopped = b.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
+                arrayRegistry.clear();
+                arrayRegistryCounter.set(1);
                 client.stopped(evt);
                 // Disable event so we can create new step events
                 event.request().disable();
@@ -417,6 +424,7 @@ public class JavaDebugServer implements DebugServer {
 
     @Override
     public void disconnect(DisconnectArguments req) {
+        arrayRegistry.clear();
         try {
             vm.dispose();
         } catch (VMDisconnectedException __) {
@@ -666,7 +674,7 @@ public class JavaDebugServer implements DebugServer {
                 var arr = (ArrayReference) jdiValue;
                 var componentTypeName = ((com.sun.jdi.ArrayType) arr.type()).componentTypeName();
                 w.value = componentTypeName + "[" + arr.length() + "]";
-                var id = arrayRegistryCounter++;
+                int id = arrayRegistryCounter.getAndUpdate(n -> (n + 1 < FRAME_OFFSET * 2) ? n + 1 : 1);
                 arrayRegistry.put(id, arr);
                 w.variablesReference = id;
             } else {
@@ -690,7 +698,8 @@ public class JavaDebugServer implements DebugServer {
         for (var i = 0; i < length; i++) {
             var w = new Variable();
             w.name = "[" + i + "]";
-            w.value = arr.getValue(i).toString();
+            var elem = arr.getValue(i);
+            w.value = elem != null ? elem.toString() : "null";
             variables[i] = w;
         }
         var resp = new VariablesResponseBody();
