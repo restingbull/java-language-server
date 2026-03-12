@@ -126,6 +126,15 @@ public class WarningsTest {
         assertThat(errors, empty());
     }
 
+    @Test
+    public void wrongTypeContains() {
+        server.lint(List.of(FindResource.path("org/javacs/warn/WrongTypeContains.java")));
+        assertThat(errors, hasItem("wrong_type_contains(11)")); // s.contains(42) - Set<String>
+        assertThat(errors, hasItem("wrong_type_contains(13)")); // list.contains(42) - List<String>
+        assertThat(errors, hasItem("wrong_type_contains(14)")); // list.indexOf(42) - List<String>
+        assertThat(errors, not(hasItem("wrong_type_contains(15)"))); // s.contains("valid") - compatible
+    }
+
     // TODO warn on type.equals(otherType)
     // TODO warn on map.get(wrongKeyType)
 }

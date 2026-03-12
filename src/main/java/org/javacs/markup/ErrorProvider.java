@@ -31,6 +31,7 @@ public class ErrorProvider {
             result[i].diagnostics.addAll(compilerErrors(root));
             result[i].diagnostics.addAll(unusedWarnings(root));
             result[i].diagnostics.addAll(notThrownWarnings(root));
+            result[i].diagnostics.addAll(wrongTypeWarnings(root));
         }
         // TODO hint fields that could be final
 
@@ -67,6 +68,32 @@ public class ErrorProvider {
             result.add(warnNotThrown(notThrown.get(location), location));
         }
         return result;
+    }
+
+    private List<org.javacs.lsp.Diagnostic> wrongTypeWarnings(CompilationUnitTree root) {
+        var result = new ArrayList<org.javacs.lsp.Diagnostic>();
+        var findings = new ArrayList<WarnWrongType.Finding>();
+        new WarnWrongType(task.task).scan(root, findings);
+        for (var f : findings) {
+            result.add(warnWrongType(f, root));
+        }
+        return result;
+    }
+
+    private org.javacs.lsp.Diagnostic warnWrongType(WarnWrongType.Finding f, CompilationUnitTree root) {
+        var trees = Trees.instance(task.task);
+        var pos = trees.getSourcePositions();
+        var invocation = f.path.getLeaf();
+        var start = pos.getStartPosition(root, invocation);
+        var end = pos.getEndPosition(root, invocation);
+        var d = new org.javacs.lsp.Diagnostic();
+        d.message = String.format(
+                "%s argument type %s is not compatible with %s",
+                f.methodName, f.argType, f.elementType);
+        d.range = RangeHelper.range(root, start, end);
+        d.code = "wrong_type_contains";
+        d.severity = DiagnosticSeverity.Warning;
+        return d;
     }
 
     /**
