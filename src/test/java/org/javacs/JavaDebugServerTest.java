@@ -388,5 +388,41 @@ public class JavaDebugServerTest {
         process.waitFor();
     }
 
+
+    @Test
+    public void objectWithNoFieldsHasNoVariablesReference() throws IOException, InterruptedException {
+        launchProcess("ObjectNoFields");
+        attach(5005);
+        setBreakpoint("ObjectNoFields", 5);
+        server.configurationDone();
+        stoppedEvents.take();
+        var threads = server.threads().threads;
+        org.javacs.debug.proto.Variable emptyVar = null;
+        for (var t : threads) {
+            if (t.name.equals("main")) {
+                var requestTrace = new StackTraceArguments();
+                requestTrace.threadId = t.id;
+                var stack = server.stackTrace(requestTrace);
+                var requestScopes = new ScopesArguments();
+                requestScopes.frameId = stack.stackFrames[0].id;
+                var scopes = server.scopes(requestScopes).scopes;
+                var requestLocals = new VariablesArguments();
+                requestLocals.variablesReference = scopes[0].variablesReference;
+                var locals = server.variables(requestLocals).variables;
+                for (var v : locals) {
+                    if (v.name.equals("e")) {
+                        emptyVar = v;
+                    }
+                }
+            }
+        }
+        org.junit.Assert.assertNotNull("variable e not found", emptyVar);
+        // An object with no declared fields must have variablesReference == 0 (not expandable)
+        org.junit.Assert.assertEquals(
+                "object with no fields must have variablesReference 0", 0, emptyVar.variablesReference);
+        server.continue_(new ContinueArguments());
+        process.waitFor();
+    }
+
     private static final Logger LOG = Logger.getLogger("main");
 }

@@ -41,8 +41,10 @@ public class JavaDebugServer implements DebugServer {
     private final Map<Integer, ArrayReference> arrayRegistry = new ConcurrentHashMap<>();
     /** Registry of object references encountered during variable inspection. Cleared on each stopped event. */
     private final Map<Integer, ObjectReference> objectRegistry = new ConcurrentHashMap<>();
-    /** Next ID to assign; stays in [1, FRAME_OFFSET * 2) via modular reset. Shared by arrayRegistry and objectRegistry. */
+    /** Next ID for arrays; uses odd values in [1, FRAME_OFFSET * 2). Reset on each stopped/step/disconnect/terminate event. */
     private final AtomicInteger arrayRegistryCounter = new AtomicInteger(1);
+    /** Next ID for objects; uses even values in [2, FRAME_OFFSET * 2). Reset on each stopped/step/disconnect/terminate event. */
+    private final AtomicInteger objectRegistryCounter = new AtomicInteger(2);
 
     class ReceiveVmEvents implements Runnable {
         @Override
@@ -81,6 +83,7 @@ public class JavaDebugServer implements DebugServer {
                 arrayRegistry.clear();
                 objectRegistry.clear();
                 arrayRegistryCounter.set(1);
+                objectRegistryCounter.set(2);
                 client.stopped(evt);
             } else if (event instanceof StepEvent) {
                 var b = (StepEvent) event;
@@ -91,12 +94,21 @@ public class JavaDebugServer implements DebugServer {
                 arrayRegistry.clear();
                 objectRegistry.clear();
                 arrayRegistryCounter.set(1);
+                objectRegistryCounter.set(2);
                 client.stopped(evt);
                 // Disable event so we can create new step events
                 event.request().disable();
             } else if (event instanceof VMDeathEvent) {
+                arrayRegistry.clear();
+                objectRegistry.clear();
+                arrayRegistryCounter.set(1);
+                objectRegistryCounter.set(2);
                 client.exited(new ExitedEventBody());
             } else if (event instanceof VMDisconnectEvent) {
+                arrayRegistry.clear();
+                objectRegistry.clear();
+                arrayRegistryCounter.set(1);
+                objectRegistryCounter.set(2);
                 client.terminated(new TerminatedEventBody());
             }
         }
@@ -430,6 +442,8 @@ public class JavaDebugServer implements DebugServer {
     public void disconnect(DisconnectArguments req) {
         arrayRegistry.clear();
         objectRegistry.clear();
+        arrayRegistryCounter.set(1);
+        objectRegistryCounter.set(2);
         try {
             vm.dispose();
         } catch (VMDisconnectedException __) {
@@ -440,6 +454,10 @@ public class JavaDebugServer implements DebugServer {
 
     @Override
     public void terminate(TerminateArguments req) {
+        arrayRegistry.clear();
+        objectRegistry.clear();
+        arrayRegistryCounter.set(1);
+        objectRegistryCounter.set(2);
         vm.exit(1);
     }
 
@@ -651,7 +669,7 @@ public class JavaDebugServer implements DebugServer {
 
     @Override
     public VariablesResponseBody variables(VariablesArguments req) {
-        // Array and object registry IDs are in range [1, FRAME_OFFSET * 2); frame scope IDs start at FRAME_OFFSET * 2.
+        // Array IDs use odd values in [1, FRAME_OFFSET * 2); object IDs use even values in [2, FRAME_OFFSET * 2); frame scope IDs start at FRAME_OFFSET * 2.
         if (req.variablesReference > 0 && req.variablesReference < FRAME_OFFSET * 2L) {
             int id = (int) req.variablesReference;
             if (objectRegistry.containsKey(id)) {
@@ -683,14 +701,14 @@ public class JavaDebugServer implements DebugServer {
                 var arr = (ArrayReference) jdiValue;
                 var componentTypeName = ((com.sun.jdi.ArrayType) arr.type()).componentTypeName();
                 w.value = componentTypeName + "[" + arr.length() + "]";
-                int id = arrayRegistryCounter.getAndUpdate(n -> (n + 1 < FRAME_OFFSET * 2) ? n + 1 : 1);
+                int id = arrayRegistryCounter.getAndUpdate(n -> (n + 2 < FRAME_OFFSET * 2) ? n + 2 : 1);
                 arrayRegistry.put(id, arr);
                 w.variablesReference = id;
             } else if (jdiValue instanceof ObjectReference) {
                 var obj = (ObjectReference) jdiValue;
                 w.value = print(jdiValue, thread);
                 if (!obj.referenceType().fields().isEmpty()) {
-                    int id = arrayRegistryCounter.getAndUpdate(n -> (n + 1 < FRAME_OFFSET * 2) ? n + 1 : 1);
+                    int id = objectRegistryCounter.getAndUpdate(n -> (n + 2 < FRAME_OFFSET * 2) ? n + 2 : 2);
                     objectRegistry.put(id, obj);
                     w.variablesReference = id;
                 }
