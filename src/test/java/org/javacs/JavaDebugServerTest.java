@@ -345,5 +345,48 @@ public class JavaDebugServerTest {
         process.waitFor();
     }
 
+    @Test
+    public void objectVariableShowsInstanceFields() throws IOException, InterruptedException {
+        launchProcess("ObjectFields");
+        attach(5005);
+        setBreakpoint("ObjectFields", 9);
+        server.configurationDone();
+        stoppedEvents.take();
+        var threads = server.threads().threads;
+        org.javacs.debug.proto.Variable pointVar = null;
+        for (var t : threads) {
+            if (t.name.equals("main")) {
+                var requestTrace = new StackTraceArguments();
+                requestTrace.threadId = t.id;
+                var stack = server.stackTrace(requestTrace);
+                var requestScopes = new ScopesArguments();
+                requestScopes.frameId = stack.stackFrames[0].id;
+                var scopes = server.scopes(requestScopes).scopes;
+                var requestLocals = new VariablesArguments();
+                requestLocals.variablesReference = scopes[0].variablesReference;
+                var locals = server.variables(requestLocals).variables;
+                for (var v : locals) {
+                    if (v.name.equals("p")) {
+                        pointVar = v;
+                    }
+                }
+            }
+        }
+        org.junit.Assert.assertNotNull("variable p not found", pointVar);
+        org.junit.Assert.assertTrue("p must have variablesReference > 0", pointVar.variablesReference > 0);
+        var requestFields = new VariablesArguments();
+        requestFields.variablesReference = pointVar.variablesReference;
+        var fields = server.variables(requestFields).variables;
+        org.junit.Assert.assertTrue("p must have at least 2 fields", fields.length >= 2);
+        var xField = java.util.Arrays.stream(fields).filter(f -> f.name.equals("x")).findFirst().orElse(null);
+        var yField = java.util.Arrays.stream(fields).filter(f -> f.name.equals("y")).findFirst().orElse(null);
+        org.junit.Assert.assertNotNull("field x not found", xField);
+        org.junit.Assert.assertNotNull("field y not found", yField);
+        org.junit.Assert.assertEquals("3", xField.value);
+        org.junit.Assert.assertEquals("7", yField.value);
+        server.continue_(new ContinueArguments());
+        process.waitFor();
+    }
+
     private static final Logger LOG = Logger.getLogger("main");
 }

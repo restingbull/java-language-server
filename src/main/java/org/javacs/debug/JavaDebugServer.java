@@ -39,7 +39,9 @@ public class JavaDebugServer implements DebugServer {
     private static int breakPointCounter = 0;
     /** Registry of arrays encountered during variable inspection. Cleared on each stopped event. */
     private final Map<Integer, ArrayReference> arrayRegistry = new ConcurrentHashMap<>();
-    /** Next ID to assign; stays in [1, FRAME_OFFSET * 2) via modular reset. */
+    /** Registry of object references encountered during variable inspection. Cleared on each stopped event. */
+    private final Map<Integer, ObjectReference> objectRegistry = new ConcurrentHashMap<>();
+    /** Next ID to assign; stays in [1, FRAME_OFFSET * 2) via modular reset. Shared by arrayRegistry and objectRegistry. */
     private final AtomicInteger arrayRegistryCounter = new AtomicInteger(1);
 
     class ReceiveVmEvents implements Runnable {
@@ -77,6 +79,7 @@ public class JavaDebugServer implements DebugServer {
                 evt.threadId = b.thread().uniqueID();
                 evt.allThreadsStopped = b.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
                 arrayRegistry.clear();
+                objectRegistry.clear();
                 arrayRegistryCounter.set(1);
                 client.stopped(evt);
             } else if (event instanceof StepEvent) {
@@ -86,6 +89,7 @@ public class JavaDebugServer implements DebugServer {
                 evt.threadId = b.thread().uniqueID();
                 evt.allThreadsStopped = b.request().suspendPolicy() == EventRequest.SUSPEND_ALL;
                 arrayRegistry.clear();
+                objectRegistry.clear();
                 arrayRegistryCounter.set(1);
                 client.stopped(evt);
                 // Disable event so we can create new step events
@@ -425,6 +429,7 @@ public class JavaDebugServer implements DebugServer {
     @Override
     public void disconnect(DisconnectArguments req) {
         arrayRegistry.clear();
+        objectRegistry.clear();
         try {
             vm.dispose();
         } catch (VMDisconnectedException __) {
@@ -646,9 +651,13 @@ public class JavaDebugServer implements DebugServer {
 
     @Override
     public VariablesResponseBody variables(VariablesArguments req) {
-        // Array registry IDs are in range [1, FRAME_OFFSET * 2); frame scope IDs start at FRAME_OFFSET * 2.
+        // Array and object registry IDs are in range [1, FRAME_OFFSET * 2); frame scope IDs start at FRAME_OFFSET * 2.
         if (req.variablesReference > 0 && req.variablesReference < FRAME_OFFSET * 2L) {
-            return arrayChildren((int) req.variablesReference);
+            int id = (int) req.variablesReference;
+            if (objectRegistry.containsKey(id)) {
+                return objectFields(id);
+            }
+            return arrayChildren(id);
         }
         var frameId = req.variablesReference / 2;
         var scopeId = (int) (req.variablesReference % 2);
@@ -677,6 +686,14 @@ public class JavaDebugServer implements DebugServer {
                 int id = arrayRegistryCounter.getAndUpdate(n -> (n + 1 < FRAME_OFFSET * 2) ? n + 1 : 1);
                 arrayRegistry.put(id, arr);
                 w.variablesReference = id;
+            } else if (jdiValue instanceof ObjectReference) {
+                var obj = (ObjectReference) jdiValue;
+                w.value = print(jdiValue, thread);
+                if (!obj.referenceType().fields().isEmpty()) {
+                    int id = arrayRegistryCounter.getAndUpdate(n -> (n + 1 < FRAME_OFFSET * 2) ? n + 1 : 1);
+                    objectRegistry.put(id, obj);
+                    w.variablesReference = id;
+                }
             } else {
                 w.value = print(jdiValue, thread);
             }
@@ -700,6 +717,28 @@ public class JavaDebugServer implements DebugServer {
             w.name = "[" + i + "]";
             var elem = arr.getValue(i);
             w.value = elem != null ? elem.toString() : "null";
+            variables[i] = w;
+        }
+        var resp = new VariablesResponseBody();
+        resp.variables = variables;
+        return resp;
+    }
+
+    private VariablesResponseBody objectFields(int registryId) {
+        var obj = objectRegistry.get(registryId);
+        if (obj == null) {
+            LOG.warning("No object registered with id " + registryId);
+            return new VariablesResponseBody();
+        }
+        var fields = obj.referenceType().fields();
+        var variables = new Variable[fields.size()];
+        for (var i = 0; i < fields.size(); i++) {
+            var field = fields.get(i);
+            var w = new Variable();
+            w.name = field.name();
+            w.type = field.typeName();
+            var fieldValue = obj.getValue(field);
+            w.value = fieldValue != null ? fieldValue.toString() : "null";
             variables[i] = w;
         }
         var resp = new VariablesResponseBody();
