@@ -7,7 +7,7 @@ import org.javacs.CompilerProvider;
 import org.javacs.lsp.TextEdit;
 
 class InlineMethod implements Rewrite {
-    private static final Logger LOG = Logger.getLogger(InlineMethod.class.getName());
+    private static final Logger LOG = Logger.getLogger("main");
     final String className, methodName;
     final String[] erasedParameterTypes;
 

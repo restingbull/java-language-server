@@ -7,7 +7,7 @@ import org.javacs.CompilerProvider;
 import org.javacs.lsp.TextEdit;
 
 class ExtractVariable implements Rewrite {
-    private static final Logger LOG = Logger.getLogger(ExtractVariable.class.getName());
+    private static final Logger LOG = Logger.getLogger("main");
     final String className;
     final JavaType type;
     final int startPosition, endPosition;

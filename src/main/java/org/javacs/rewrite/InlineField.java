@@ -7,7 +7,7 @@ import org.javacs.CompilerProvider;
 import org.javacs.lsp.TextEdit;
 
 class InlineField implements Rewrite {
-    private static final Logger LOG = Logger.getLogger(InlineField.class.getName());
+    private static final Logger LOG = Logger.getLogger("main");
     final String className, fieldName;
 
     InlineField(String className, String fieldName) {
