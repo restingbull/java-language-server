@@ -1,4 +1,4 @@
-# Bazel 7.x + JDK 25 toolchain configuration
+# Bazel 9.x + JDK 25 toolchain configuration
 # java-language-server
 
 # Enable bzlmod
@@ -7,11 +7,8 @@ common --enable_bzlmod
 # Java toolchain: target JDK 25
 build --java_language_version=25
 build --tool_java_language_version=25
-build --java_runtime_version=local_jdk
-build --tool_java_runtime_version=local_jdk
-
-# Disable Error Prone checks (pre-existing issues not caught by Maven)
-build --javacopt=-XepDisableAllChecks
+build --java_runtime_version=remotejdk_25
+build --tool_java_runtime_version=remotejdk_25
 
 # --add-exports for internal jdk.compiler APIs used by the language server
 build --javacopt=--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
