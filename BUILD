@@ -13,6 +13,18 @@ java_binary(
     name = "java-language-server",
     main_class = "org.javacs.Main",
     runtime_deps = [":lib"],
+    add_opens = [
+    "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED"
+    ],
+    add_exports = [
+     "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+    "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+    "jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+    "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+    "jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+    "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    ]
 )
 
 _TEST_DEPS = [

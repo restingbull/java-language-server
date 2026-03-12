@@ -11,32 +11,18 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 WORKSPACE_DIR="${1:-.}"
 WORKSPACE_DIR="$(cd "$WORKSPACE_DIR" && pwd)"
 
-DEPLOY_JAR="$REPO_DIR/bazel-bin/java-language-server_deploy.jar"
+EXECUTABLE="$REPO_DIR/bazel-bin/java-language-server"
 
-# Build if deploy jar is missing
-if [ ! -f "$DEPLOY_JAR" ]; then
+# Build if executable is missing
+if [ ! -f "$EXECUTABLE" ]; then
     echo "Building java-language-server..." >&2
-    cd "$REPO_DIR"
-    bazel build //:java-language-server
-fi
-
-# Resolve java executable
-if [ -n "$JAVA_HOME" ]; then
-    JAVA="$JAVA_HOME/bin/java"
-else
-    JAVA="java"
+    (
+        cd "$REPO_DIR"
+        bazel build //:java-language-server
+    )
 fi
 
 # Run LSP server with cwd set to the provided workspace directory
 cd "$WORKSPACE_DIR"
-exec "$JAVA" \
-    --add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-    --add-exports jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED \
-    --add-exports jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED \
-    --add-exports jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED \
-    --add-exports jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-    --add-exports jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED \
-    --add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-    --add-opens jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-    -jar "$DEPLOY_JAR" \
+exec "${EXECUTABLE}" \
     "${@:2}"
