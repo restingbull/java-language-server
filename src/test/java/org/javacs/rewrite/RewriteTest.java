@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import org.javacs.CompilerProvider;
 import org.javacs.LanguageServerFixture;
 import org.junit.Test;
+import java.util.Arrays;
 
 public class RewriteTest {
     static final CompilerProvider compiler = LanguageServerFixture.getCompilerProvider();
@@ -116,5 +117,35 @@ public class RewriteTest {
         var file = file("TestAddOverride.java");
         var edits = new AutoAddOverrides(file).rewrite(compiler);
         assertThat(edits, hasKey(file));
+    }
+
+    private Path actionFile(String name) {
+        return LanguageServerFixture.DEFAULT_WORKSPACE_ROOT
+                .resolve("src/org/javacs/action")
+                .resolve(name)
+                .toAbsolutePath();
+    }
+
+    @Test
+    public void changePackageUpdatesDeclaration() {
+        var file = actionFile("ChangePackageExample.java");
+        var edits = new ChangePackage(file, "org.javacs.newpkg").rewrite(compiler);
+        assertThat("should produce edits for the source file", edits, hasKey(file));
+        var fileEdits = edits.get(file);
+        var hasPackageEdit = Arrays.stream(fileEdits)
+                .anyMatch(e -> e.newText.contains("org.javacs.newpkg"));
+        assertThat("package declaration should be updated to new package", hasPackageEdit, is(true));
+    }
+
+    @Test
+    public void changePackageUpdatesImporters() {
+        var file = actionFile("ChangePackageExample.java");
+        var importer = actionFile("ChangePackageImporter.java");
+        var edits = new ChangePackage(file, "org.javacs.newpkg").rewrite(compiler);
+        assertThat("should produce edits for the importer file", edits, hasKey(importer));
+        var importerEdits = edits.get(importer);
+        var hasImportEdit = Arrays.stream(importerEdits)
+                .anyMatch(e -> e.newText.contains("org.javacs.newpkg.ChangePackageExample"));
+        assertThat("import should be updated to new package", hasImportEdit, is(true));
     }
 }
