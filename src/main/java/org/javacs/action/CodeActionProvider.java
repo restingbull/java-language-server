@@ -148,6 +148,7 @@ public class CodeActionProvider {
                 return createQuickFix("Remove class", removeClass);
             case "unused_method":
                 var unusedMethod = findMethod(task, d.range);
+                if (unusedMethod == null) return List.of();
                 var removeMethod =
                         new RemoveMethod(
                                 unusedMethod.className, unusedMethod.methodName, unusedMethod.erasedParameterTypes);
@@ -156,6 +157,7 @@ public class CodeActionProvider {
                 var shortExceptionName = extractRange(task, d.range);
                 var notThrown = extractNotThrownExceptionName(d.message);
                 var methodWithExtraThrow = findMethod(task, d.range);
+                if (methodWithExtraThrow == null) return List.of();
                 var removeThrow =
                         new RemoveException(
                                 methodWithExtraThrow.className,
@@ -165,12 +167,14 @@ public class CodeActionProvider {
                 return createQuickFix("Remove '" + shortExceptionName + "'", removeThrow);
             case "compiler.warn.unchecked.call.mbr.of.raw.type":
                 var warnedMethod = findMethod(task, d.range);
+                if (warnedMethod == null) return List.of();
                 var suppressWarning =
                         new AddSuppressWarningAnnotation(
                                 warnedMethod.className, warnedMethod.methodName, warnedMethod.erasedParameterTypes);
                 return createQuickFix("Suppress 'unchecked' warning", suppressWarning);
             case "compiler.err.unreported.exception.need.to.catch.or.throw":
                 var needsThrow = findMethod(task, d.range);
+                if (needsThrow == null) return List.of();
                 var exceptionName = extractExceptionName(d.message);
                 var addThrows =
                         new AddException(
@@ -250,10 +254,10 @@ public class CodeActionProvider {
     }
 
     private boolean isConstructor(CompileTask task, MethodTree method) {
-        return method.getName().contentEquals("<init>") && !synthentic(task, method);
+        return method.getName().contentEquals("<init>") && !isSynthetic(task, method);
     }
 
-    private boolean synthentic(CompileTask task, MethodTree method) {
+    private boolean isSynthetic(CompileTask task, MethodTree method) {
         return Trees.instance(task.task).getSourcePositions().getStartPosition(task.root(), method) != -1;
     }
 
@@ -261,6 +265,7 @@ public class CodeActionProvider {
         var trees = Trees.instance(task.task);
         var position = task.root().getLineMap().getPosition(range.start.line + 1, range.start.character + 1);
         var tree = new FindMethodDeclarationAt(task.task).scan(task.root(), position);
+        if (tree == null) return null;
         var path = trees.getPath(task.root(), tree);
         var method = (ExecutableElement) trees.getElement(path);
         return new MethodPtr(task.task, method);

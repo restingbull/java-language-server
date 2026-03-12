@@ -111,7 +111,22 @@ public class CodeActionTest {
     @Test
     public void testCreateMissingMethodInStaticContext() {
         var generatedText = createMissingMethodText("org/javacs/action/TestCreateMissingMethodStatic.java");
+        assertThat("generated method text should not be empty", generatedText, not(equalTo("")));
         assertThat("generated method should have static modifier", generatedText, containsString("static"));
+    }
+
+    @Test
+    public void testCreateMissingMethodInInstanceContext() {
+        var generatedText = createMissingMethodText("org/javacs/action/TestCreateMissingMethodInstance.java");
+        assertThat("generated method text should not be empty", generatedText, not(equalTo("")));
+        assertThat("generated method should not have static modifier", generatedText, not(containsString("static")));
+    }
+
+    @Test
+    public void testCreateMissingMethodInStaticInitializerDoesNotCrash() {
+        assertThat(
+                quickFix("org/javacs/action/TestCreateMissingMethodStaticInit.java"),
+                hasItem("Create missing method"));
     }
 
     private String createMissingMethodText(String testFile) {

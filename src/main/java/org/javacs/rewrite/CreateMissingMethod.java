@@ -37,12 +37,15 @@ public class CreateMissingMethod implements Rewrite {
             var call = new FindMethodCallAt(task.task).scan(task.root(), position);
             if (call == null) return CANCELLED;
             var path = trees.getPath(task.root(), call);
-            var insertText = "\n" + printMethodHeader(task, call, path) + " {\n    // TODO\n}";
+            var enclosingMethod = surroundingMethod(path);
+            var header = printMethodHeader(task, call, enclosingMethod);
+            var insertText = "\n" + header + " {\n    // TODO\n}";
             var surroundingClass = surroundingClass(path);
             var indent = EditHelper.indent(task.task, task.root(), surroundingClass) + 4;
             insertText = insertText.replaceAll("\n", "\n" + " ".repeat(indent));
             insertText = insertText + "\n";
-            var insertPoint = EditHelper.insertAfter(task.task, task.root(), surroundingMethod(path));
+            var insertAnchor = enclosingMethod != null ? enclosingMethod : surroundingClass;
+            var insertPoint = EditHelper.insertAfter(task.task, task.root(), insertAnchor);
             TextEdit[] edits = {new TextEdit(new Range(insertPoint, insertPoint), insertText)};
             return Map.of(file, edits);
         }
@@ -60,23 +63,25 @@ public class CreateMissingMethod implements Rewrite {
 
     private MethodTree surroundingMethod(TreePath call) {
         while (call != null) {
+            if (call.getLeaf() instanceof ClassTree) {
+                return null;
+            }
             if (call.getLeaf() instanceof MethodTree) {
                 return (MethodTree) call.getLeaf();
             }
             call = call.getParentPath();
         }
-        throw new RuntimeException("No surrounding class");
+        throw new RuntimeException("No surrounding method");
     }
 
-    private String printMethodHeader(CompileTask task, MethodInvocationTree call, TreePath path) {
+    private String printMethodHeader(CompileTask task, MethodInvocationTree call, MethodTree enclosingMethod) {
         var methodName = extractMethodName(call.getMethodSelect());
         var returnType = "void"; // TODO infer type
         if (returnType.equals(methodName)) {
             returnType = "_";
         }
         var parameters = printParameters(task, call);
-        var enclosingMethod = surroundingMethod(path);
-        var staticModifier = enclosingMethod.getModifiers().getFlags().contains(Modifier.STATIC) ? "static " : "";
+        var staticModifier = (enclosingMethod != null && enclosingMethod.getModifiers().getFlags().contains(Modifier.STATIC)) ? "static " : "";
         return "private " + staticModifier + returnType + " " + methodName + "(" + parameters + ")";
     }
 
@@ -135,6 +140,7 @@ public class CreateMissingMethod implements Rewrite {
         if (type instanceof DeclaredType) {
             var declared = (DeclaredType) type;
             var name = declared.asElement().getSimpleName();
+            if (name.length() == 0) return "";
             return "" + Character.toLowerCase(name.charAt(0)) + name.subSequence(1, name.length());
         } else {
             return "";
