@@ -34,14 +34,15 @@ public class CodeActionProvider {
         // task to generate the code actions
         // If we switch to resolving code actions asynchronously using Command, that will fix this problem.
         var rewrites = new TreeMap<String, Rewrite>();
+        var actions = new ArrayList<CodeAction>();
         try (var task = compiler.compile(file)) {
             var elapsed = Duration.between(started, Instant.now()).toMillis();
             LOG.info(String.format("...compiled in %d ms", elapsed));
             var lines = task.root().getLineMap();
             var cursor = lines.getPosition(params.range.start.line + 1, params.range.start.character + 1);
             rewrites.putAll(overrideInheritedMethods(task, file, cursor));
+            actions.addAll(changePackageAction(task, file, cursor));
         }
-        var actions = new ArrayList<CodeAction>();
         for (var title : rewrites.keySet()) {
             // TODO are these all quick fixes?
             actions.addAll(createQuickFix(title, rewrites.get(title)));
@@ -78,6 +79,20 @@ public class CodeActionProvider {
             actions.put(title, rewrite);
         }
         return actions;
+    }
+
+    private List<CodeAction> changePackageAction(CompileTask task, Path file, long cursor) {
+        var pkg = task.root().getPackage();
+        if (pkg == null) return List.of();
+        var pos = Trees.instance(task.task).getSourcePositions();
+        var pkgStart = pos.getStartPosition(task.root(), pkg);
+        var pkgEnd = pos.getEndPosition(task.root(), pkg);
+        if (cursor < pkgStart || cursor > pkgEnd) return List.of();
+        var a = new CodeAction();
+        a.kind = CodeActionKind.RefactorRewrite;
+        a.title = "Change package";
+        a.command = new Command("Change package", "java.action.changePackage", null);
+        return List.of(a);
     }
 
     private boolean isInMethod(CompileTask task, long cursor) {

@@ -97,6 +97,13 @@ public class CodeActionTest {
     }
 
     @Test
+    public void testChangePackageAction() {
+        assertThat(
+                forCursor("org/javacs/action/ChangePackageExample.java", 1, 1),
+                hasItem("Change package"));
+    }
+
+    @Test
     public void testCreateMissingMethod() {
         assertThat(quickFix("org/javacs/action/TestCreateMissingMethod.java"), hasItem("Create missing method"));
     }
