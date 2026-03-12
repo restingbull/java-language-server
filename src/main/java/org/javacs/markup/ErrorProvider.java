@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javax.lang.model.element.Element;
 import javax.tools.Diagnostic;
@@ -51,7 +52,9 @@ public class ErrorProvider {
         var warnUnused = new WarnUnused(task.task);
         warnUnused.scan(root, null);
         for (var unusedEl : warnUnused.notUsed()) {
-            result.add(warnUnused(unusedEl));
+            var d = warnUnused(unusedEl);
+            if (d == null) continue;
+            result.add(d);
         }
         return result;
     }
@@ -123,7 +126,8 @@ public class ErrorProvider {
         var trees = Trees.instance(task.task);
         var path = trees.getPath(unusedEl);
         if (path == null) {
-            throw new RuntimeException(unusedEl + " has no path");
+            LOG.warning(unusedEl + " has no path");
+            return null;
         }
         var root = path.getCompilationUnit();
         var leaf = path.getLeaf();
@@ -179,6 +183,8 @@ public class ErrorProvider {
         }
         return lspWarnUnused(severity, code, message, start, end, root);
     }
+
+    private static final Logger LOG = Logger.getLogger("main");
 
     private static org.javacs.lsp.Diagnostic lspWarnUnused(
             int severity, String code, String message, int start, int end, CompilationUnitTree root) {

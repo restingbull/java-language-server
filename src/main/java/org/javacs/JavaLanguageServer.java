@@ -155,8 +155,8 @@ class JavaLanguageServer extends LanguageServer {
 
     @Override
     public InitializeResult initialize(InitializeParams params) {
-        this.workspaceRoot = Paths.get(params.rootUri);
-        FileStore.setWorkspaceRoots(Set.of(Paths.get(params.rootUri)));
+        this.workspaceRoot = Path.of(params.rootUri);
+        FileStore.setWorkspaceRoots(Set.of(Path.of(params.rootUri)));
 
         var c = new JsonObject();
         c.addProperty("textDocumentSync", 2); // Incremental
@@ -245,7 +245,7 @@ class JavaLanguageServer extends LanguageServer {
                         FileStore.externalDelete(file);
                         break;
                 }
-                return;
+                continue;
             }
             var name = file.getFileName().toString();
             switch (name) {

@@ -210,7 +210,7 @@ class JavaCompilerService implements CompilerProvider {
 
     @Override
     public List<String> packagePrivateTopLevelTypes(String packageName) {
-        return List.of("TODO");
+        return List.of();
     }
 
     private boolean containsImport(Path file, String className) {

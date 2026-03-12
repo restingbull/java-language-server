@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.logging.Level;
@@ -176,7 +176,7 @@ public class LSP {
     public static void connect(
             Function<LanguageClient, LanguageServer> serverFactory, InputStream receive, OutputStream send) {
         var server = serverFactory.apply(new RealClient(send));
-        var pending = new ArrayBlockingQueue<Message>(10);
+        var pending = new LinkedBlockingQueue<Message>();
         var endOfStream = new Message();
 
         // Read messages and process cancellations on a separate thread

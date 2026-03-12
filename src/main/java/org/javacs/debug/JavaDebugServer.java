@@ -29,18 +29,6 @@ public class JavaDebugServer implements DebugServer {
         System.exit(0);
     }
 
-    private static void createLogFile() {
-        try {
-            // TODO make location configurable
-            var logFile =
-                    new FileHandler("/Users/georgefraser/Documents/java-language-server/java-debug-server.log", false);
-            logFile.setFormatter(new LogFormat());
-            Logger.getLogger("").addHandler(logFile);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     private final DebugClient client;
     private List<Path> sourceRoots = List.of();
     private VirtualMachine vm;
