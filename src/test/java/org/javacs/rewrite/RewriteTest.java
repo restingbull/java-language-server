@@ -132,6 +132,9 @@ public class RewriteTest {
         var edits = new ChangePackage(file, "org.javacs.newpkg").rewrite(compiler);
         assertThat("should produce edits for the source file", edits, hasKey(file));
         var fileEdits = edits.get(file);
+        assertThat("package declaration edit should not contain old package",
+                Arrays.stream(fileEdits).noneMatch(e -> e.newText.contains("org.javacs.action")),
+                is(true));
         var hasPackageEdit = Arrays.stream(fileEdits)
                 .anyMatch(e -> e.newText.contains("org.javacs.newpkg"));
         assertThat("package declaration should be updated to new package", hasPackageEdit, is(true));
@@ -147,5 +150,25 @@ public class RewriteTest {
         var hasImportEdit = Arrays.stream(importerEdits)
                 .anyMatch(e -> e.newText.contains("org.javacs.newpkg.ChangePackageExample"));
         assertThat("import should be updated to new package", hasImportEdit, is(true));
+    }
+
+    @Test
+    public void changePackageNoDeclaration() {
+        var file = actionFile("ChangePackageNoDeclaration.java");
+        var edits = new ChangePackage(file, "org.javacs.newpkg").rewrite(compiler);
+        assertThat("should return CANCELLED for file with no package declaration",
+                edits.isEmpty(), is(true));
+    }
+
+    @Test
+    public void changePackageWildcardImport() {
+        var file = actionFile("ChangePackageExample.java");
+        var wildcardImporter = actionFile("ChangePackageWildcardImporter.java");
+        var edits = new ChangePackage(file, "org.javacs.newpkg").rewrite(compiler);
+        assertThat("should produce edits for the wildcard importer file", edits, hasKey(wildcardImporter));
+        var wildcardEdits = edits.get(wildcardImporter);
+        var hasWildcardEdit = Arrays.stream(wildcardEdits)
+                .anyMatch(e -> e.newText.contains("org.javacs.newpkg.*"));
+        assertThat("wildcard import should be updated to new package", hasWildcardEdit, is(true));
     }
 }

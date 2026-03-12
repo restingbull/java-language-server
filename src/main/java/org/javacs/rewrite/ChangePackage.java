@@ -57,13 +57,14 @@ public class ChangePackage implements Rewrite {
             try (var compile = compiler.compile(importers)) {
                 for (var root : compile.roots) {
                     var rootPath = Path.of(root.getSourceFile().toUri());
+                    if (rootPath.equals(file)) continue;
                     var edits = new ArrayList<TextEdit>();
                     var rootLines = root.getLineMap();
                     var rootPos = Trees.instance(compile.task).getSourcePositions();
                     for (var imp : root.getImports()) {
                         if (imp.isStatic()) continue;
                         var impName = imp.getQualifiedIdentifier().toString();
-                        if (!impName.equals(oldFqn)) continue;
+                        if (!impName.equals(oldFqn) && !impName.equals(oldPackage + ".*")) continue;
                         var impStart = rootPos.getStartPosition(root, imp);
                         var impEnd = rootPos.getEndPosition(root, imp);
                         var impStartLine = (int) rootLines.getLineNumber(impStart);
@@ -73,7 +74,10 @@ public class ChangePackage implements Rewrite {
                         var impRange = new Range(
                                 new Position(impStartLine - 1, impStartCol - 1),
                                 new Position(impEndLine - 1, impEndCol - 1));
-                        edits.add(new TextEdit(impRange, "import " + newFqn));
+                        var newImport = impName.equals(oldPackage + ".*")
+                                ? "import " + newPackage + ".*"
+                                : "import " + newFqn;
+                        edits.add(new TextEdit(impRange, newImport));
                     }
                     if (!edits.isEmpty()) {
                         result.put(rootPath, edits.toArray(new TextEdit[0]));
