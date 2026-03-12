@@ -2,10 +2,12 @@ package org.javacs.rewrite;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.logging.Logger;
 import org.javacs.CompilerProvider;
 import org.javacs.lsp.TextEdit;
 
 class ExtractVariable implements Rewrite {
+    private static final Logger LOG = Logger.getLogger(ExtractVariable.class.getName());
     final String className;
     final JavaType type;
     final int startPosition, endPosition;
@@ -19,6 +21,7 @@ class ExtractVariable implements Rewrite {
 
     @Override
     public Map<Path, TextEdit[]> rewrite(CompilerProvider compiler) {
+        LOG.warning("ExtractVariable.rewrite is not yet implemented");
         return Rewrite.CANCELLED;
     }
 }

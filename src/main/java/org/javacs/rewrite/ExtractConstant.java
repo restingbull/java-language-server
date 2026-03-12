@@ -2,10 +2,12 @@ package org.javacs.rewrite;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.logging.Logger;
 import org.javacs.CompilerProvider;
 import org.javacs.lsp.TextEdit;
 
 class ExtractConstant implements Rewrite {
+    private static final Logger LOG = Logger.getLogger(ExtractConstant.class.getName());
     final String className, fieldName;
     final JavaType type;
     final int startPosition, endPosition;
@@ -20,6 +22,7 @@ class ExtractConstant implements Rewrite {
 
     @Override
     public Map<Path, TextEdit[]> rewrite(CompilerProvider compiler) {
+        LOG.warning("ExtractConstant.rewrite is not yet implemented");
         return Rewrite.CANCELLED;
     }
 }
